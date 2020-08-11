@@ -21,30 +21,53 @@ app.get('/', (req, res) =>{
 
 app.post('/signin', (req, res) =>{
    
-    if(req.body.email === database.users[0].email && req.body.password === database.users[0].password){
-        return res.json(database.users[0])
-    }else{
-        return res.status(400).json('error logging in ')
-    }
+   database.select('email', 'hash').from('login')
+   .where( 'email', '=', req.body.email)
+   .then(data => {
+        const isValid = bcrypt.compareSync(req.body.password, data[0].hash)
+
+        if(isValid){
+            return database.select('*').from('users')
+            .where('email', '=', req.body.email)
+            .then(user => {
+                res.json(user[0])
+            })
+            .catch(err => res.status(400).json('Unable to get user'))
+        }else{
+            res.status(400).json('Incorrect credentials')
+        }
+   })
+   .catch(err => res.status(400).json('Incorrect credentials'))
 })
 
 
 app.post('/register', (req, res) =>{
 
     const { fullname, email, password, joined } = req.body;
+    const hash = bcrypt.hashSync(password);
 
-    // bcrypt.hash(password, 8, function(err, hash) {
-    //     console.log(hash)
-    // });
+    //inorder to update two tables we need to implent transcation which will store password and email into the login table. 
 
-    database('users')
-    .returning('*')
-    .insert({
-        fullname: fullname,
-        email: email,
-        joined: new Date()
-    }).then(user =>{
-        res.json(user[0]);
+    database.transaction( trans => {
+        trans.insert({
+            hash, 
+            email
+        })
+        .into('login')
+        .returning('email')
+        .then(loginEmail =>{
+           return trans('users')
+            .returning('*')
+            .insert({
+                fullname: fullname,
+                email: loginEmail[0], //[0] will return array rather than obj
+                joined: new Date()
+            }).then(user =>{
+                res.json(user[0]);
+            })
+        })
+        .then(trans.commit)
+        .catch( trans.rollback)
     })
     .catch( err => res.status(400).json('Unable to register.'))
 })
@@ -73,8 +96,9 @@ app.put('/image', (req, res) =>{
     .increment('entries', 1)
     .returning('entries')
     .then(entries => {
-        console.log(entries)
+        res.json(entries[0])
     })
+    .catch(err => res.status(400).json('unable to get entries'))
 })
 
 app.listen(8000 , () =>{
