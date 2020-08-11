@@ -69,19 +69,12 @@ app.get('/profile/:id', (req, res) =>{
 
 app.put('/image', (req, res) =>{
     const { id } = req.body;
-    let found = false;
-
-    db.users.forEach(user =>{
-        if(user.id === id){
-            found = true;
-            user.entries++
-            return res.json(user.entries);
-        }
-    });
-    if(!found){
-        res.status(400).json('not found')
-    }
-
+    database('users').where('id', '=', id)
+    .increment('entries', 1)
+    .returning('entries')
+    .then(entries => {
+        console.log(entries)
+    })
 })
 
 app.listen(8000 , () =>{
