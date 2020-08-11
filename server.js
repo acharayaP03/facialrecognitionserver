@@ -1,42 +1,28 @@
 const express = require('express');
 const cors = require('cors')
 const bcrypt = require('bcryptjs');
+const { database } = require('./db');
 
 const app = express();
 
 app.use(express.json());
 app.use(cors())
 
-const db = {
-    users : [
-        {
-            id: '123',
-            name : 'John Smith',
-            email : 'john@gmail.com',
-            password: 'cookies',
-            entries : 0,
-            joined : new Date()
-        },
-        {
-            id: '456',
-            name : 'Jane Smith',
-            email : 'jane@gmail.com',
-            password: 'cookies2',
-            entries : 2,
-            joined : new Date()
-        }
-    ]
-}
+
+
+// database.select('*').from('users')
+// .then( data => console.log(data))
+
 
 app.get('/', (req, res) =>{
-    res.send(db.users)
+    res.send(database.users)
 })
 
 
 app.post('/signin', (req, res) =>{
    
-    if(req.body.email === db.users[0].email && req.body.password === db.users[0].password){
-        return res.json(db.users[0])
+    if(req.body.email === database.users[0].email && req.body.password === database.users[0].password){
+        return res.json(database.users[0])
     }else{
         return res.status(400).json('error logging in ')
     }
@@ -45,23 +31,22 @@ app.post('/signin', (req, res) =>{
 
 app.post('/register', (req, res) =>{
 
-    const { name, email, password } = req.body;
+    const { fullname, email, password, joined } = req.body;
 
-    bcrypt.hash(password, 8, function(err, hash) {
-        console.log(hash)
-    });
+    // bcrypt.hash(password, 8, function(err, hash) {
+    //     console.log(hash)
+    // });
 
-    db.users.push({
-        id: '125',
-        name: name,
+    database('users')
+    .returning('*')
+    .insert({
+        fullname: fullname,
         email: email,
-        password: password,
-        entries: 0,
         joined: new Date()
+    }).then(user =>{
+        res.json(user[0]);
     })
-
-    res.status(200).json(db.users[db.users.length-1])
-
+    .catch( err => res.status(400).json('Unable to register.'))
 })
 
 app.get('/profile/:id', (req, res) =>{
